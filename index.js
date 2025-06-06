@@ -3,7 +3,6 @@ const { Client, IntentsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, 
 const fs = require('fs');
 const path = require('path');
 
-// Initialize client
 const client = new Client({
     intents: [
         IntentsBitField.Flags.Guilds,
@@ -20,7 +19,7 @@ const defaultPrefix = 'k!';
 const prefixFilePath = path.join(__dirname, 'prefixes.json');
 let prefixes = {};
 
-// Load prefixes from file
+// Load prefixes
 try {
     if (fs.existsSync(prefixFilePath)) {
         prefixes = JSON.parse(fs.readFileSync(prefixFilePath));
@@ -51,10 +50,87 @@ const rpsGames = new Map();
 const userWarnings = new Collection();
 const spamDetection = new Collection();
 
-// Hangman words and drawing function (same as before)
-// ...
+// Hangman words
+const hangmanWords = ['javascript', 'discord', 'developer', 'bot', 'programming', 'hangman', 'computer'];
 
-// Utility Commands
+// Improved Hangman drawing
+function getHangmanDrawing(incorrectGuesses) {
+    const stages = [
+        `
+          _______
+         |/      |
+         |      
+         |      
+         |       
+         |      
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |      
+         |       
+         |      
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |       |
+         |       |
+         |      
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |      \\|
+         |       |
+         |      
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |      \\|/
+         |       |
+         |      
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |      \\|/
+         |       |
+         |      / 
+         |
+        _|___
+        `,
+        `
+          _______
+         |/      |
+         |      (_)
+         |      \\|/
+         |       |
+         |      / \\
+         |
+        _|___
+        `
+    ];
+    return stages[incorrectGuesses];
+}
+
+// Command collections
 const utilityCommands = {
     help: {
         execute: (message) => {
@@ -92,64 +168,274 @@ const utilityCommands = {
             });
         }
     },
-    // ... other utility commands ...
-};
-
-// Hangman Command with message editing
-gameCommands.hangman = {
-    execute: async (message) => {
-        const userId = message.author.id;
-        
-        if (hangmanGames.has(userId)) {
-            message.reply('You already have an ongoing Hangman game!').then(msg => setTimeout(() => msg.delete(), 3000));
-            return;
+    ping: {
+        execute: (message) => {
+            message.channel.send(`Pong! Latency is ${Date.now() - message.createdTimestamp}ms.`);
         }
-        
-        const word = hangmanWords[Math.floor(Math.random() * hangmanWords.length)].toLowerCase();
-        const hiddenWord = '_'.repeat(word.length).split('').join(' ');
-        const wrongGuesses = [];
-        
-        const embed = new EmbedBuilder()
-            .setTitle('Hangman Game')
-            .setDescription(getHangmanDrawing(0))
-            .addFields(
-                { name: 'Word', value: hiddenWord },
-                { name: 'Wrong Guesses', value: 'None' },
-                { name: 'Attempts Left', value: '6' }
-            )
-            .setFooter({ text: 'Type a letter to guess!' });
+    },
+    userinfo: {
+        execute: (message) => {
+            const user = message.mentions.users.first() || message.author;
+            const member = message.guild.members.cache.get(user.id);
             
-        const gameMessage = await message.channel.send({ embeds: [embed] });
-        
-        hangmanGames.set(userId, {
-            word,
-            hiddenWord,
-            wrongGuesses,
-            attemptsLeft: 6,
-            guessedLetters: [],
-            messageId: gameMessage.id
-        });
+            const embed = new EmbedBuilder()
+                .setTitle(`User Info - ${user.username}`)
+                .setThumbnail(user.displayAvatarURL())
+                .setColor('#0099ff')
+                .addFields(
+                    { name: 'ID', value: user.id, inline: true },
+                    { name: 'Username', value: user.tag, inline: true },
+                    { name: 'Joined Server', value: member.joinedAt.toDateString(), inline: true },
+                    { name: 'Account Created', value: user.createdAt.toDateString(), inline: true },
+                    { name: 'Roles', value: member.roles.cache.map(r => r.name).join(', '), inline: false }
+                );
+            message.channel.send({ embeds: [embed] });
+        }
+    },
+    serverinfo: {
+        execute: (message) => {
+            const guild = message.guild;
+            
+            const embed = new EmbedBuilder()
+                .setTitle(`Server Info - ${guild.name}`)
+                .setThumbnail(guild.iconURL())
+                .setColor('#0099ff')
+                .addFields(
+                    { name: 'Owner', value: `<@${guild.ownerId}>`, inline: true },
+                    { name: 'Members', value: guild.memberCount.toString(), inline: true },
+                    { name: 'Created', value: guild.createdAt.toDateString(), inline: true },
+                    { name: 'Channels', value: guild.channels.cache.size.toString(), inline: true },
+                    { name: 'Roles', value: guild.roles.cache.size.toString(), inline: true },
+                    { name: 'Boost Level', value: guild.premiumTier.toString(), inline: true }
+                );
+            message.channel.send({ embeds: [embed] });
+        }
     }
 };
 
-// Enhanced Auto-Moderation
+const gameCommands = {
+    hangman: {
+        execute: async (message) => {
+            const userId = message.author.id;
+            
+            if (hangmanGames.has(userId)) {
+                message.reply('You already have an ongoing Hangman game!').then(msg => setTimeout(() => msg.delete(), 3000));
+                return;
+            }
+            
+            const word = hangmanWords[Math.floor(Math.random() * hangmanWords.length)].toLowerCase();
+            const hiddenWord = '_'.repeat(word.length).split('').join(' ');
+            const wrongGuesses = [];
+            
+            const embed = new EmbedBuilder()
+                .setTitle('Hangman Game')
+                .setDescription(getHangmanDrawing(0))
+                .addFields(
+                    { name: 'Word', value: hiddenWord },
+                    { name: 'Wrong Guesses', value: 'None' },
+                    { name: 'Attempts Left', value: '6' }
+                )
+                .setFooter({ text: 'Type a letter to guess!' });
+                
+            const gameMessage = await message.channel.send({ embeds: [embed] });
+            
+            hangmanGames.set(userId, {
+                word,
+                hiddenWord,
+                wrongGuesses,
+                attemptsLeft: 6,
+                guessedLetters: [],
+                messageId: gameMessage.id
+            });
+        }
+    },
+    tictactoe: {
+        execute: (message) => {
+            // ... [existing tictactoe implementation] ...
+        }
+    },
+    rps: {
+        execute: (message) => {
+            // ... [existing rps implementation] ...
+        }
+    }
+};
+
+const moderationCommands = {
+    // ... [existing moderation commands] ...
+};
+
+// Auto-moderation functions
 async function handleAutoModeration(message) {
-    // ... (same auto-moderation implementation as before) ...
+    if (message.author.bot) return false;
+    
+    const member = message.member;
+    const hasExemptRole = member.roles.cache.some(role => autoModConfig.exemptRoles.includes(role.name));
+    const isExemptChannel = autoModConfig.exemptChannels.includes(message.channel.name);
+    
+    if (hasExemptRole || isExemptChannel) return false;
+    
+    const content = message.content.toLowerCase();
+    const userId = message.author.id;
+    
+    // Banned words detection
+    const foundWord = autoModConfig.bannedWords.find(word => content.includes(word));
+    if (foundWord) {
+        message.delete();
+        message.channel.send(`${message.author}, your message contained inappropriate content.`)
+            .then(msg => setTimeout(() => msg.delete(), 5000));
+        warnUser(message.author, 'Used banned word');
+        return true;
+    }
+    
+    // Spam detection
+    const userMessages = spamDetection.get(userId) || [];
+    userMessages.push(Date.now());
+    spamDetection.set(userId, userMessages.filter(t => Date.now() - t < autoModConfig.spamWindow));
+    
+    if (spamDetection.get(userId).length >= autoModConfig.spamThreshold) {
+        message.channel.send(`${message.author}, please don't spam!`)
+            .then(msg => setTimeout(() => msg.delete(), 3000));
+        warnUser(message.author, 'Spamming messages');
+        return true;
+    }
+    
+    // ... [other auto-mod checks] ...
+    
+    return false;
+}
+
+function warnUser(user, reason) {
+    const warnings = userWarnings.get(user.id) || [];
+    warnings.push({ timestamp: Date.now(), reason });
+    userWarnings.set(user.id, warnings);
+    
+    if (warnings.length >= autoModConfig.warnThreshold) {
+        message.member.timeout(autoModConfig.muteDuration * 1000, 'Exceeded warning threshold')
+            .then(() => message.channel.send(`${user} has been muted for ${autoModConfig.muteDuration / 60} minutes due to repeated violations.`))
+            .catch(console.error);
+        userWarnings.delete(user.id);
+    }
+}
+
+// Hangman game handler
+async function handleHangmanGame(message) {
+    const userId = message.author.id;
+    if (!hangmanGames.has(userId)) return;
+    
+    const game = hangmanGames.get(userId);
+    
+    if (message.content.length !== 1 || !/[a-z]/i.test(message.content)) {
+        message.reply('Please guess a single letter!').then(msg => setTimeout(() => msg.delete(), 3000));
+        return;
+    }
+    
+    const guess = message.content.toLowerCase();
+    
+    if (game.guessedLetters.includes(guess)) {
+        message.reply('You already guessed that letter!').then(msg => setTimeout(() => msg.delete(), 3000));
+        return;
+    }
+    
+    game.guessedLetters.push(guess);
+    
+    let shouldUpdate = false;
+    let gameEnded = false;
+    
+    if (game.word.includes(guess)) {
+        let newHidden = game.hiddenWord.split(' ');
+        for (let i = 0; i < game.word.length; i++) {
+            if (game.word[i] === guess) {
+                newHidden[i] = guess;
+            }
+        }
+        game.hiddenWord = newHidden.join(' ');
+        shouldUpdate = true;
+        
+        if (!game.hiddenWord.includes('_')) {
+            const winEmbed = new EmbedBuilder()
+                .setTitle('Hangman - You Won! 🎉')
+                .setDescription(getHangmanDrawing(6 - game.attemptsLeft))
+                .addFields(
+                    { name: 'The word was', value: game.word },
+                    { name: 'Wrong Guesses', value: game.wrongGuesses.length > 0 ? game.wrongGuesses.join(', ') : 'None' }
+                )
+                .setColor('#00ff00');
+            
+            try {
+                const gameMessage = await message.channel.messages.fetch(game.messageId);
+                await gameMessage.edit({ embeds: [winEmbed] });
+            } catch (err) {
+                console.error('Failed to edit Hangman message:', err);
+            }
+            
+            hangmanGames.delete(userId);
+            gameEnded = true;
+        }
+    } else {
+        if (!game.wrongGuesses.includes(guess)) {
+            game.wrongGuesses.push(guess);
+            game.attemptsLeft--;
+            shouldUpdate = true;
+            
+            if (game.attemptsLeft <= 0) {
+                const loseEmbed = new EmbedBuilder()
+                    .setTitle('Hangman - You Lost! 😵')
+                    .setDescription(getHangmanDrawing(6))
+                    .addFields(
+                        { name: 'The word was', value: game.word },
+                        { name: 'Wrong Guesses', value: game.wrongGuesses.join(', ') }
+                    )
+                    .setColor('#ff0000');
+                
+                try {
+                    const gameMessage = await message.channel.messages.fetch(game.messageId);
+                    await gameMessage.edit({ embeds: [loseEmbed] });
+                } catch (err) {
+                    console.error('Failed to edit Hangman message:', err);
+                }
+                
+                hangmanGames.delete(userId);
+                gameEnded = true;
+            }
+        }
+    }
+    
+    if (shouldUpdate && !gameEnded) {
+        const embed = new EmbedBuilder()
+            .setTitle('Hangman Game')
+            .setDescription(getHangmanDrawing(6 - game.attemptsLeft))
+            .addFields(
+                { name: 'Word', value: game.hiddenWord },
+                { name: 'Wrong Guesses', value: game.wrongGuesses.length > 0 ? game.wrongGuesses.join(', ') : 'None' },
+                { name: 'Attempts Left', value: game.attemptsLeft.toString() }
+            )
+            .setFooter({ text: 'Type a letter to guess!' });
+        
+        try {
+            const gameMessage = await message.channel.messages.fetch(game.messageId);
+            await gameMessage.edit({ embeds: [embed] });
+        } catch (err) {
+            console.error('Failed to edit Hangman message:', err);
+        }
+    }
+    
+    message.delete().catch(console.error);
 }
 
 // Message handler
 client.on('messageCreate', async (message) => {
     if (message.author.bot) return;
     
-    // Get prefix for this guild
-    const currentPrefix = prefixes[message.guild.id] || defaultPrefix;
-    
-    // Handle auto-moderation
+    // Handle auto-moderation first
     const shouldSkip = await handleAutoModeration(message);
     if (shouldSkip) return;
     
     // Handle Hangman game
     await handleHangmanGame(message);
+    
+    // Get prefix for this guild
+    const currentPrefix = prefixes[message.guild.id] || defaultPrefix;
     
     // Command handling
     if (!message.content.startsWith(currentPrefix)) return;
@@ -163,9 +449,16 @@ client.on('messageCreate', async (message) => {
         gameCommands[commandName].execute(message, args);
     } else if (moderationCommands[commandName]) {
         moderationCommands[commandName].execute(message, args);
+    } else {
+        message.reply(`Unknown command! Type \`${currentPrefix}help\` for a list of commands.`);
     }
 });
 
-// ... (rest of the existing code - button interactions, helper functions, etc.) ...
+// ... [rest of your existing code like button interactions] ...
+
+client.on('ready', () => {
+    console.log(`Logged in as ${client.user.tag}!`);
+    client.user.setActivity(`Type ${defaultPrefix}help for commands`);
+});
 
 client.login(process.env.DISCORD_TOKEN);
