@@ -461,4 +461,4 @@ client.on('ready', () => {
     client.user.setActivity(`Type ${defaultPrefix}help for commands`);
 });
 
-client.login(MTM4MDU3Nzk0Njc0MTI0Mzk3NA.Gsaedy.gCIQPunmE5cmT9PUDDqj0xd1O8vJYKt-SDbWKM);
+client.login('MTM4MDU3Nzk0Njc0MTI0Mzk3NA.Gsaedy.gCIQPunmE5cmT9PUDDqj0xd1O8vJYKt-SDbWKM');
