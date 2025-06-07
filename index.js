@@ -1,7 +1,7 @@
-require('dotenv').config();
 const { Client, IntentsBitField, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, Collection } = require('discord.js');
 const fs = require('fs');
 const path = require('path');
+const { token } = require('./config.js'); 
 
 const client = new Client({
     intents: [
@@ -51,7 +51,7 @@ const userWarnings = new Collection();
 const spamDetection = new Collection();
 
 // Hangman words
-const hangmanWords = ['javascript', 'discord', 'developer', 'bot', 'programming', 'hangman', 'computer'];
+const hangmanWords = ['javascript', 'discord', 'developer', 'bot', 'programming', 'hangman', 'computer', 'hello', 'Owner', 'abyssfral', 'better', 'Discord'];
 
 // Improved Hangman drawing
 function getHangmanDrawing(incorrectGuesses) {
@@ -461,4 +461,4 @@ client.on('ready', () => {
     client.user.setActivity(`Type ${defaultPrefix}help for commands`);
 });
 
-client.login(process.env.DISCORD_TOKEN);
+client.login(token);
